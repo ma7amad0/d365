@@ -134,6 +134,16 @@ The first command is a dry run. The second enables only identity/profile; employ
 
 Bootstrap a manually approved identity mapping without using display-name matching:
 
+First perform a read-only lookup by the immutable Entra object ID and independently verify the
+returned personnel number and legal entity:
+
+```bash
+docker compose exec backend python -m app.tools.lookup_identity_candidate \
+  --oid <ENTRA-OBJECT-ID>
+```
+
+The lookup never writes a mapping and fails on missing or duplicate D365 matches. After approval:
+
 ```bash
 docker compose exec backend python -m app.tools.create_identity_mapping \
   --oid <ENTRA-OBJECT-ID> \
