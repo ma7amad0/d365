@@ -16,7 +16,7 @@ async def run(term: str, include_fields: bool, refresh: bool) -> int:
     try:
         tokens = D365TokenService(settings)
         async with D365Client(settings, tokens) as client:
-            service = D365MetadataService(client)
+            service = D365MetadataService(client, max_bytes=settings.D365_METADATA_MAX_BYTES)
             matches = await service.search(term, refresh=refresh)
         print(f"Possible entity sets ({len(matches)} matches):")
         for entity in matches:

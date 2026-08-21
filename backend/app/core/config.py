@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     D365_READ_TIMEOUT_SECONDS: float = 30.0
     D365_MAX_RETRIES: int = 3
     D365_METADATA_CACHE_SECONDS: int = 21_600
+    D365_METADATA_MAX_BYTES: int = Field(default=268_435_456, ge=1_048_576, le=536_870_912)
 
     @field_validator("ALLOWED_HOSTS", "CORS_ORIGINS", mode="before")
     @classmethod

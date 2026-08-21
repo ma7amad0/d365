@@ -1,3 +1,4 @@
+import httpx
 import pytest
 
 from app.d365.exceptions import D365MetadataError
@@ -36,6 +37,14 @@ class StubClient:
         raise AssertionError
 
 
+class MetadataClient:
+    def __init__(self, content: bytes) -> None:
+        self.content = content
+
+    async def get_metadata(self) -> httpx.Response:
+        return httpx.Response(200, content=self.content)
+
+
 @pytest.mark.asyncio
 async def test_search_matches_property_names() -> None:
     service = D365MetadataService(StubClient())  # type: ignore[arg-type]
@@ -46,3 +55,10 @@ async def test_search_matches_property_names() -> None:
     service.fetch_xml = fetch_xml  # type: ignore[method-assign]
     matches = await service.search("email")
     assert [item.entity_set for item in matches] == ["DemoWorkers"]
+
+
+@pytest.mark.asyncio
+async def test_metadata_size_limit_is_configurable() -> None:
+    service = D365MetadataService(MetadataClient(b"12345"), max_bytes=4)  # type: ignore[arg-type]
+    with pytest.raises(D365MetadataError, match="5 bytes received; limit is 4 bytes"):
+        await service.fetch_xml(refresh=True)

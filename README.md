@@ -95,6 +95,7 @@ The complete template is in `.env.example`. Important groups:
 - Portal identity: `TENANT_ID`, `PORTAL_CLIENT_ID`, `PORTAL_API_AUDIENCE`
 - D365 app identity: `D365_CLIENT_ID`, `D365_CLIENT_SECRET`
 - D365 endpoints: fixed by default to `https://sssa.operations.dynamics.com` and `/data`
+- metadata safety: `D365_METADATA_MAX_BYTES` defaults to 256 MiB and is capped at 512 MiB
 - dependencies: `DATABASE_URL`, `REDIS_URL`, and PostgreSQL bootstrap values
 - edge policy: exact `ALLOWED_HOSTS` and `CORS_ORIGINS`
 

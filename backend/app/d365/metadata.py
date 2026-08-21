@@ -21,11 +21,16 @@ class D365MetadataService:
     CACHE_KEY = "d365:metadata:v1"
 
     def __init__(
-        self, client: D365Client, redis: Redis | None = None, cache_ttl: int = 21_600
+        self,
+        client: D365Client,
+        redis: Redis | None = None,
+        cache_ttl: int = 21_600,
+        max_bytes: int = 268_435_456,
     ) -> None:
         self._client = client
         self._redis = redis
         self._cache_ttl = cache_ttl
+        self._max_bytes = max_bytes
 
     async def fetch_xml(self, *, refresh: bool = False) -> str:
         if self._redis is not None and not refresh:
@@ -38,9 +43,13 @@ class D365MetadataService:
                     "d365_metadata_cache_read_failed", error_type=type(exc).__name__
                 )
         response = await self._client.get_metadata()
+        size = len(response.content)
+        if size > self._max_bytes:
+            raise D365MetadataError(
+                "D365 metadata document exceeds the configured safety limit "
+                f"({size} bytes received; limit is {self._max_bytes} bytes)"
+            )
         xml = response.text
-        if len(xml) > 50_000_000:
-            raise D365MetadataError("D365 metadata document exceeds the 50 MB safety limit")
         if self._redis is not None:
             try:
                 await self._redis.set(self.CACHE_KEY, xml, ex=self._cache_ttl)

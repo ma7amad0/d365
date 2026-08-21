@@ -19,7 +19,7 @@ async def run(include_metadata: bool) -> int:
         print("[OK] Entra token acquired")
         async with D365Client(settings, tokens) as client:
             if include_metadata:
-                metadata = D365MetadataService(client)
+                metadata = D365MetadataService(client, max_bytes=settings.D365_METADATA_MAX_BYTES)
                 xml = await metadata.fetch_xml(refresh=True)
                 entity_count = len(metadata.parse(xml))
                 print("[OK] D365 connection successful")
