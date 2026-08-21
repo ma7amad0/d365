@@ -47,7 +47,12 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID:-}
+        VITE_PORTAL_CLIENT_ID: ${VITE_PORTAL_CLIENT_ID:-}
+        VITE_PORTAL_API_SCOPE: ${VITE_PORTAL_API_SCOPE:-}
     expose: ["8080"]
     networks: [private]
     read_only: true

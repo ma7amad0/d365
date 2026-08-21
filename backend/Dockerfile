@@ -9,6 +9,7 @@ WORKDIR /app
 COPY requirements*.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+COPY config ./config
 COPY alembic.ini ./
 COPY alembic ./alembic
 RUN chown -R portal:portal /app
@@ -24,4 +25,4 @@ USER portal
 CMD ["pytest"]
 
 FROM base AS production
-CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["sh", "-c", "alembic upgrade head && exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:8000 --access-logfile - --error-logfile -"]

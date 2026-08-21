@@ -2,6 +2,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button { font: inherit; }
+.login-page { min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 70% 20%,#d4eeee 0,transparent 30%),linear-gradient(145deg,#eff6f7,#dcebed); }
+.login-card { width:min(430px,100%);background:white;border:1px solid #d8e6e9;border-radius:20px;padding:45px;text-align:center;box-shadow:0 24px 70px rgba(13,65,83,.14); }.login-card .brand-mark{margin:auto}.login-card p{font-weight:800;letter-spacing:.15em;color:#07526f;margin:16px 0 5px}.login-card h1{font-size:30px;margin:0 0 12px}.login-card>span{display:block;color:#66818c;line-height:1.6;font-size:14px}.login-card button{margin-top:28px;width:100%;border:0;border-radius:10px;padding:13px 18px;display:flex;justify-content:center;gap:9px;background:#087184;color:white;font-weight:600;cursor:pointer}.login-card button:disabled{opacity:.5;cursor:not-allowed}
 .shell { min-height: 100vh; display: grid; grid-template-columns: 252px 1fr; }
 .sidebar { background: #073c59; color: white; padding: 28px 18px; display: flex; flex-direction: column; min-height: 100vh; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 32px; }

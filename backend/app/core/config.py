@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     TENANT_ID: str = ""
     PORTAL_CLIENT_ID: str = ""
     PORTAL_API_AUDIENCE: str = ""
+    PORTAL_ALLOWED_CLIENT_IDS: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    PORTAL_REQUIRED_SCOPE: str = "access_as_user"
+    ENTRA_ACCEPTED_TOKEN_VERSION: Literal["2.0"] = "2.0"
+    ENTRA_METADATA_CACHE_SECONDS: int = Field(default=86_400, ge=300, le=86_400)
 
     D365_CLIENT_ID: str = ""
     D365_CLIENT_SECRET: SecretStr = SecretStr("")
@@ -46,7 +50,7 @@ class Settings(BaseSettings):
     D365_METADATA_CACHE_SECONDS: int = 21_600
     D365_METADATA_MAX_BYTES: int = Field(default=268_435_456, ge=1_048_576, le=536_870_912)
 
-    @field_validator("ALLOWED_HOSTS", "CORS_ORIGINS", mode="before")
+    @field_validator("ALLOWED_HOSTS", "CORS_ORIGINS", "PORTAL_ALLOWED_CLIENT_IDS", mode="before")
     @classmethod
     def split_csv(cls, value: object) -> object:
         if isinstance(value, str):
@@ -60,6 +64,8 @@ class Settings(BaseSettings):
             for field in ("TENANT_ID", "PORTAL_CLIENT_ID", "PORTAL_API_AUDIENCE", "D365_CLIENT_ID"):
                 if not getattr(self, field):
                     missing.append(field)
+            if not self.PORTAL_ALLOWED_CLIENT_IDS:
+                missing.append("PORTAL_ALLOWED_CLIENT_IDS")
             if (
                 self.D365_TOKEN_AUTH_MODE == "secret"
                 and not self.D365_CLIENT_SECRET.get_secret_value()
@@ -76,6 +82,14 @@ class Settings(BaseSettings):
     @property
     def d365_scope(self) -> list[str]:
         return [f"{str(self.D365_BASE_URL).rstrip('/')}/.default"]
+
+    @property
+    def entra_issuer(self) -> str:
+        return f"https://login.microsoftonline.com/{self.TENANT_ID}/v2.0"
+
+    @property
+    def entra_discovery_url(self) -> str:
+        return f"{self.entra_issuer}/.well-known/openid-configuration"
 
 
 @lru_cache

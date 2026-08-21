@@ -1,6 +1,6 @@
 # SSSA Employee Portal
 
-Production-oriented foundation for an on-premises employee portal backed by Microsoft Dynamics 365 Finance & Operations. This milestone intentionally implements infrastructure and D365 discovery only. It does **not** query guessed employee entities or expose production employee data.
+Production-oriented foundation for an on-premises employee portal backed by Microsoft Dynamics 365 Finance & Operations. D365 profile access is driven only by metadata-confirmed database configuration and verified identity mappings.
 
 ## Milestone status
 
@@ -14,11 +14,15 @@ Implemented:
 - safe OData identifier validation, value escaping, and bounded pagination
 - defused XML `$metadata` parser and entity/property search
 - D365 connectivity and metadata CLI tools
+- tenant-scoped Entra v2 access-token validation using cached OIDC/JWKS signing keys
+- MSAL authorization-code/PKCE sign-in with memory-only browser token caching
+- verified identity mapping, audit, local-role, setting, and D365 configuration schema
+- protected `/api/v1/me` and `/api/v1/me/profile` with explicit DTOs
 - React/TypeScript/Vite responsive shell with English/Arabic direction support
 - Docker Compose topology in which only Nginx publishes a host port
 - automated backend tests
 
-Deferred by design: Entra interactive SSO/JWT validation (Phase 2), employee mappings (Phase 4), real employee queries (Phase 6), roles, audit persistence, and manager authorization. These must follow metadata discovery and cannot safely be fabricated.
+Deferred by design: automatic identity matching, mapping administration screens, manager/team APIs, leave APIs, and write operations. Profile access fails closed until an operator applies a live-metadata-validated configuration and creates a verified mapping.
 
 ## Architecture
 
@@ -92,7 +96,7 @@ Run the frontend separately with `npm install` and `npm run dev` from `frontend/
 
 The complete template is in `.env.example`. Important groups:
 
-- Portal identity: `TENANT_ID`, `PORTAL_CLIENT_ID`, `PORTAL_API_AUDIENCE`
+- Portal identity: tenant, SPA client ID, exact API audience, allowed clients, and delegated scope
 - D365 app identity: `D365_CLIENT_ID`, `D365_CLIENT_SECRET`
 - D365 endpoints: fixed by default to `https://sssa.operations.dynamics.com` and `/data`
 - metadata safety: `D365_METADATA_MAX_BYTES` defaults to 256 MiB and is capped at 512 MiB
@@ -103,15 +107,43 @@ Production startup validates identity settings, the D365 secret, session-secret 
 
 ## Microsoft Entra app registrations
 
-Use separate registrations for the portal API and D365 backend integration.
+Use three identities: a browser SPA registration, a portal API registration, and the confidential D365 backend registration.
 
-For the future portal SSO registration:
+For portal SSO:
 
-1. Create a single-tenant registration.
-2. Configure only exact HTTPS redirect URIs for the on-prem portal DNS name.
-3. Expose the portal API scope/audience and define app roles (`employee`, `manager`, `hr`, `finance`, `portal_admin`, `auditor`).
-4. Do not use wildcard redirect URIs or implicit grant.
-5. Phase 2 will validate signature, issuer, audience, tenant, time claims, and token version against Microsoft discovery/JWKS before accepting claims.
+1. Create a single-tenant SPA registration with the exact HTTPS portal redirect/logout URI. Do not enable implicit grant.
+2. Create a portal API registration. Expose delegated scope `access_as_user`; define app roles `employee`, `manager`, `hr`, `finance`, `portal_admin`, and `auditor` on this API.
+3. Grant the SPA delegated permission to the API scope and perform tenant admin consent where policy requires it.
+4. Set `VITE_PORTAL_CLIENT_ID` and `PORTAL_ALLOWED_CLIENT_IDS` to the SPA application ID. Set `PORTAL_API_AUDIENCE` to the API application client-ID GUID. Set `VITE_PORTAL_API_SCOPE` to `api://<API-CLIENT-ID>/access_as_user`.
+5. Assign users or groups to API app roles through the Enterprise Application. The API requires both the delegated scope and a recognized app role.
+
+The API validates RS256 signature, exact tenant issuer, audience, tenant, expiration, not-before, issued-at, v2 version, calling client (`azp`), delegated scope, and app roles.
+
+### Apply confirmed UAT entity mappings
+
+The checked-in mapping is bound to the discovered UAT hostname and is checked against live metadata before persistence:
+
+```bash
+docker compose exec backend python -m app.tools.apply_d365_mapping \
+  config/d365-uat-confirmed.json
+docker compose exec backend python -m app.tools.apply_d365_mapping \
+  config/d365-uat-confirmed.json --apply
+```
+
+The first command is a dry run. The second enables only identity/profile; employment, manager, and leave remain disabled pending record-semantics validation.
+
+Bootstrap a manually approved identity mapping without using display-name matching:
+
+```bash
+docker compose exec backend python -m app.tools.create_identity_mapping \
+  --oid <ENTRA-OBJECT-ID> \
+  --upn employee@example.ae \
+  --personnel-number <D365-PERSONNEL-NUMBER> \
+  --company <D365-LEGAL-ENTITY-ID> \
+  --approved-by-oid <ADMIN-ENTRA-OBJECT-ID>
+```
+
+This records `manual_approved` as the source and creates mapping history. An administrator workflow will replace the bootstrap CLI later.
 
 For D365, create a confidential application using client credentials. The scope is automatically derived as:
 

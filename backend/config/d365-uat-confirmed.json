@@ -1,0 +1,72 @@
+{
+  "environment": "https://sssagov-uat.sandbox.operations.uae.dynamics.com",
+  "mappings": [
+    {
+      "mapping_key": "identity",
+      "entity_name": "EssWorkerDetails",
+      "personnel_number_field": "PersonnelNumber",
+      "company_field": "company",
+      "field_mapping": {
+        "entraOid": "AadUserObjectId",
+        "entraUpn": "AadUserPrincipalName",
+        "personnelNumber": "PersonnelNumber",
+        "company": "company",
+        "displayName": "Name"
+      },
+      "enabled": true
+    },
+    {
+      "mapping_key": "profile",
+      "entity_name": "EmployeesV2",
+      "personnel_number_field": "PersonnelNumber",
+      "company_field": "EmploymentLegalEntityId",
+      "email_field": "PrimaryContactEmail",
+      "field_mapping": {
+        "personnelNumber": "PersonnelNumber",
+        "displayName": "Name",
+        "email": "PrimaryContactEmail",
+        "phone": "PrimaryContactPhone",
+        "officeLocation": "OfficeLocation",
+        "professionalTitle": "ProfessionalTitle",
+        "legalEntity": "EmploymentLegalEntityId",
+        "employmentStartDate": "EmploymentStartDate",
+        "employmentEndDate": "EmploymentEndDate"
+      },
+      "enabled": true
+    },
+    {
+      "mapping_key": "employment",
+      "entity_name": "EmploymentsV2",
+      "personnel_number_field": "PersonnelNumber",
+      "company_field": "LegalEntityId",
+      "field_mapping": {
+        "employmentId": "EmploymentId",
+        "workerType": "WorkerType",
+        "startDate": "EmploymentStartDate",
+        "endDate": "EmploymentEndDate"
+      },
+      "enabled": false
+    },
+    {
+      "mapping_key": "manager",
+      "entity_name": "EssWorkerManagerRelations",
+      "personnel_number_field": "PersonnelNumber",
+      "manager_field": "ManagerPersonnelNumber",
+      "field_mapping": {},
+      "enabled": false
+    },
+    {
+      "mapping_key": "leave_balance",
+      "entity_name": "EssLeaveBalances",
+      "personnel_number_field": "PersonnelNumber",
+      "company_field": "dataAreaId",
+      "field_mapping": {
+        "leaveType": "LeaveTypeId",
+        "taken": "TakenThisYear",
+        "total": "TotalThisYear",
+        "available": "BalanceAvailable"
+      },
+      "enabled": false
+    }
+  ]
+}

@@ -8,10 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from redis.asyncio import Redis
 
+from app.auth.service import EntraTokenValidator
 from app.core.config import get_settings
+from app.core.exceptions import PortalError, portal_error_handler
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
-from app.database.session import create_engine
+from app.d365.client import D365Client
+from app.d365.token_service import D365TokenService
+from app.database.session import create_engine, create_session_factory
+from app.employees.router import router as employees_router
 from app.health.router import router as health_router
 from app.health.service import ReadinessService
 
@@ -24,9 +29,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_engine(settings)
     redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
     app.state.engine = engine
+    app.state.session_factory = create_session_factory(engine)
     app.state.redis = redis
     app.state.readiness = ReadinessService(engine, redis)
+    app.state.entra_validator = EntraTokenValidator(settings)
+    app.state.d365_client = D365Client(settings, D365TokenService(settings))
     yield
+    await app.state.entra_validator.close()
+    await app.state.d365_client.close()
     await redis.aclose()
     await engine.dispose()
 
@@ -50,3 +60,5 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-CSRF-Token"],
 )
 app.include_router(health_router)
+app.include_router(employees_router)
+app.add_exception_handler(PortalError, portal_error_handler)

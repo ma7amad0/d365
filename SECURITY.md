@@ -8,7 +8,7 @@ The browser will authenticate to the portal using single-tenant Microsoft Entra 
 
 ## Current milestone
 
-This repository currently exposes health endpoints and a static UI only. It includes the D365 integration foundation for administrators/operators, but no HTTP route exposes metadata or D365 responses. The CLI tools run inside the trusted backend environment.
+The portal now uses MSAL authorization-code flow with PKCE and validates portal API access tokens on the backend. Tokens use memory-only browser caching and are sent only in the `Authorization` header to same-origin APIs. `/me` returns allow-listed DTOs only after a verified mapping; no HTTP route exposes metadata or raw D365 responses.
 
 Tokens are cached only in backend process memory, refreshed five minutes early, never logged, and invalidated once after a D365 401. Secrets use Pydantic secret types and are not included in validation output. Logs are structured and include request correlation IDs without authorization headers or employee payloads.
 
@@ -18,7 +18,7 @@ Tokens are cached only in backend process memory, refreshed five minutes early, 
 |---|---|
 | Employee requests another personnel number | `/me` APIs derive identity exclusively from validated `oid`; never accept a personnel number. Verified mapping and object filters are mandatory. |
 | Compromised browser modifies an API request | Server-side authorization on every object; restrictive CSP; explicit DTOs; ignore client identity assertions. |
-| Stolen Entra token | Validate signature, single-tenant issuer, tenant, audience, expiry, not-before and version; short token lifetime; TLS; conditional access. Phase 2 gate. |
+| Stolen Entra token | Validate signature, single-tenant issuer, tenant, audience, expiry, not-before, issued-at, version, calling client and scope; short lifetime; TLS; conditional access. |
 | Stolen D365 client secret | Secret store, least-privilege D365 role, rotation and monitoring; migrate to certificate/workload identity where feasible. |
 | Admin maps the wrong employee | Dual identifiers, duplicate rejection, verification workflow, mapping history and audit event. Phase 4 gate. Never use display name. |
 | D365 returns extra sensitive fields | `$select` approved fields and map into explicit Pydantic DTOs. Never proxy raw responses. |
@@ -31,13 +31,11 @@ Tokens are cached only in backend process memory, refreshed five minutes early, 
 
 ## Authentication and CSRF direction
 
-Phase 2 should use the authorization-code flow with PKCE and a backend-for-frontend session: encrypted/signed opaque session cookie (`HttpOnly`, `Secure`, `SameSite=Lax`) plus CSRF tokens for state-changing requests. This keeps OAuth tokens out of browser storage. Login state and nonce must be one-time, time-bounded, and bound to the initiating session. Logout must clear the local session and use a validated post-logout URL.
-
-Bearer-token APIs are not implemented in this milestone. If architecture constraints later require them, tokens must remain in memory (not `localStorage`) and the CSP/XSS posture must be re-reviewed.
+The implemented model is a single-tenant SPA authorization-code flow with PKCE and bearer access tokens held only in memory, never `localStorage` or cookies. Because authentication uses the `Authorization` header rather than ambient cookies, conventional CSRF does not apply. XSS remains the primary browser-token threat, mitigated through React escaping, no injected HTML, strict CSP, exact redirect URIs, dependency review, and explicit DTOs. A future switch to cookie authentication requires `HttpOnly`, `Secure`, `SameSite` cookies plus CSRF tokens.
 
 ## Authorization and sensitive data
 
-Future access sequence:
+Implemented profile access sequence:
 
 ```text
 validated Entra token -> stable oid -> verified mapping -> authorized worker scope
@@ -59,4 +57,3 @@ Entra app roles are preferred. Frontend roles control presentation only and neve
 ## Reporting
 
 Report suspected vulnerabilities through the organization's internal security incident process. Do not include real tokens, secrets, or employee records in tickets. Include the request/correlation ID, timestamp, affected route, and a sanitized reproduction.
-

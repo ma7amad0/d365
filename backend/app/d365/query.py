@@ -56,3 +56,9 @@ class ODataQuery:
 def equals(field: str, value: str) -> str:
     """Safe equality filter builder for trusted field configuration and untrusted values."""
     return f"{validate_identifier(field)} eq {quote_odata_string(value)}"
+
+
+def and_all(*expressions: str) -> str:
+    if not expressions or any(not expression for expression in expressions):
+        raise ValueError("At least one non-empty OData expression is required")
+    return " and ".join(f"({expression})" for expression in expressions)
