@@ -61,6 +61,7 @@ async def test_profile_query_uses_only_mapped_employee_and_allow_listed_fields()
     assert "000123" in str(query.filter_expression)
     assert "EmployeeB" not in str(query.filter_expression)
     assert "BirthDate" not in query.select
+    assert query.cross_company is True
 
 
 @pytest.mark.asyncio

@@ -29,6 +29,7 @@ class ODataQuery:
     top: int | None = None
     skip: int | None = None
     count: bool | None = None
+    cross_company: bool | None = None
 
     def to_params(self) -> dict[str, str]:
         params: dict[str, str] = {}
@@ -50,6 +51,8 @@ class ODataQuery:
             params["$skip"] = str(self.skip)
         if self.count is not None:
             params["$count"] = str(self.count).lower()
+        if self.cross_company is not None:
+            params["cross-company"] = str(self.cross_company).lower()
         return params
 
 

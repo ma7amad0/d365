@@ -21,3 +21,7 @@ def test_query_bounds_paging() -> None:
         ODataQuery(top=1001).to_params()
     with pytest.raises(ValueError, match="negative"):
         ODataQuery(skip=-1).to_params()
+
+
+def test_cross_company_is_explicitly_serialized() -> None:
+    assert ODataQuery(cross_company=True).to_params()["cross-company"] == "true"

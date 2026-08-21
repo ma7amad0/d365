@@ -65,6 +65,7 @@ async def test_balances_are_scoped_to_mapped_employee_and_allow_listed_fields() 
     assert "6666" in str(query.filter_expression)
     assert "SSSA" in str(query.filter_expression)
     assert "PrivateValue" not in query.select
+    assert query.cross_company is True
 
 
 @pytest.mark.asyncio

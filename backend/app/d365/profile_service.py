@@ -46,6 +46,7 @@ class D365ProfileService:
                 select=tuple(dict.fromkeys(fields.values())),
                 filter_expression=and_all(*filters),
                 top=2,
+                cross_company=bool(configuration.company_field and identity.d365_company),
             ),
         )
         records = payload.get("value")

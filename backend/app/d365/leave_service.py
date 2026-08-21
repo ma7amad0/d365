@@ -36,6 +36,7 @@ class D365LeaveService:
                 select=tuple(dict.fromkeys(selected)),
                 filter_expression=and_all(*filters),
                 top=100,
+                cross_company=bool(configuration.company_field and identity.d365_company),
             ),
         )
         records = payload.get("value")
