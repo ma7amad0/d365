@@ -20,6 +20,7 @@ export default function App() {
   const { instance, accounts } = useMsal()
   const authenticated = useIsAuthenticated()
   const [displayName, setDisplayName] = useState(accounts[0]?.name || '')
+  const [authError, setAuthError] = useState('')
 
   useEffect(() => {
     if (!authenticated) return
@@ -32,10 +33,34 @@ export default function App() {
         const me = await response.json() as { name?: string }
         setDisplayName(me.name || account.name || '')
       }
-    }).catch(error => {
-      if (error instanceof InteractionRequiredAuthError) void instance.acquireTokenRedirect({ scopes: [apiScope] })
+    }).catch(async error => {
+      if (!(error instanceof InteractionRequiredAuthError)) return
+      try {
+        await instance.acquireTokenPopup({ account, scopes: [apiScope] })
+      } catch {
+        setAuthError('Your session needs attention. Select sign in again to continue.')
+      }
     })
   }, [accounts, authenticated, instance])
+
+  const signIn = async () => {
+    setAuthError('')
+    try {
+      const result = await instance.loginPopup(loginRequest)
+      instance.setActiveAccount(result.account)
+    } catch {
+      setAuthError('Sign-in could not be completed. Allow pop-ups for this portal and try again.')
+    }
+  }
+
+  const signOut = async () => {
+    setAuthError('')
+    try {
+      await instance.logoutPopup({ account: instance.getActiveAccount() || accounts[0] })
+    } catch {
+      setAuthError('Sign-out could not be completed. Allow pop-ups for this portal and try again.')
+    }
+  }
 
   const toggleLanguage = async () => {
     const language = i18n.language === 'en' ? 'ar' : 'en'
@@ -43,7 +68,7 @@ export default function App() {
     document.documentElement.lang = language
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
   }
-  if (!authenticated) return <div className="login-page"><section className="login-card"><span className="brand-mark">S</span><p>SSSA</p><h1>{t('portal')}</h1><span>{authConfigured ? t('signInDetail') : t('configurationMissing')}</span><button disabled={!authConfigured} onClick={() => void instance.loginRedirect(loginRequest)}><LogIn size={19}/>{t('signIn')}</button></section></div>
+  if (!authenticated) return <div className="login-page"><section className="login-card"><span className="brand-mark">S</span><p>SSSA</p><h1>{t('portal')}</h1><span>{authConfigured ? t('signInDetail') : t('configurationMissing')}</span>{authError && <span role="alert">{authError}</span>}<button disabled={!authConfigured} onClick={() => void signIn()}><LogIn size={19}/>{t('signIn')}</button></section></div>
 
   const initials = (displayName || 'Employee').split(/\s+/).slice(0, 2).map(value => value[0]).join('').toUpperCase()
   return <div className="shell">
@@ -53,7 +78,7 @@ export default function App() {
       <div className="security-note"><BadgeCheck size={19}/><span>Protected by Microsoft Entra ID</span></div>
     </aside>
     <main>
-      <header><button className="language" onClick={toggleLanguage}><Languages size={18}/>{i18n.language === 'en' ? 'العربية' : 'English'}</button><button className="icon-button" aria-label="Notifications"><Bell size={19}/></button><button className="icon-button" aria-label={t('logout')} onClick={() => void instance.logoutRedirect()}><LogOut size={19}/></button><div className="avatar">{initials}</div></header>
+      <header><button className="language" onClick={toggleLanguage}><Languages size={18}/>{i18n.language === 'en' ? 'العربية' : 'English'}</button><button className="icon-button" aria-label="Notifications"><Bell size={19}/></button><button className="icon-button" aria-label={t('logout')} onClick={() => void signOut()}><LogOut size={19}/></button><div className="avatar">{initials}</div></header>
       <section className="content">
         <div className="hero"><div><p>{t('welcome')}</p><h1>{displayName || 'Employee'}</h1><span>{t('overview')}</span></div><div className="hero-orbit"><span>SSSA</span></div></div>
         <div className="notice"><BadgeCheck/><div><strong>{t('secureFoundation')}</strong><p>{t('foundationDetail')}</p></div></div>
