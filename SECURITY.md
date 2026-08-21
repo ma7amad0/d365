@@ -38,7 +38,7 @@ The implemented model is a single-tenant SPA authorization-code flow with PKCE a
 Implemented profile access sequence:
 
 ```text
-validated Entra token -> stable oid -> verified mapping -> authorized worker scope
+validated Entra token -> exact D365 UPN lookup -> immutable oid equality -> verified mapping -> authorized worker scope
 -> configured D365 query for that worker -> explicit sanitized DTO -> audit event
 ```
 

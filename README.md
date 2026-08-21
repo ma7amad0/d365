@@ -17,12 +17,13 @@ Implemented:
 - tenant-scoped Entra v2 access-token validation using cached OIDC/JWKS signing keys
 - MSAL authorization-code/PKCE sign-in with memory-only browser token caching
 - verified identity mapping, audit, local-role, setting, and D365 configuration schema
-- protected `/api/v1/me` and `/api/v1/me/profile` with explicit DTOs
+- protected `/api/v1/me`, `/api/v1/me/profile`, and `/api/v1/me/leave-balances` with explicit DTOs
+- fail-closed identity auto-provisioning that verifies the D365 object ID against the signed token
 - React/TypeScript/Vite responsive shell with English/Arabic direction support
 - Docker Compose topology in which only Nginx publishes a host port
 - automated backend tests
 
-Deferred by design: automatic identity matching, mapping administration screens, manager/team APIs, leave APIs, and write operations. Profile access fails closed until an operator applies a live-metadata-validated configuration and creates a verified mapping.
+Deferred by design: mapping administration screens, manager/team APIs, leave-request APIs, approvals, and write operations. Automatic mapping uses exact UPN lookup only as a locator and refuses to provision unless D365 returns the same immutable object ID as the signed Entra token.
 
 ## Architecture
 
@@ -130,9 +131,14 @@ docker compose exec backend python -m app.tools.apply_d365_mapping \
   config/d365-uat-confirmed.json --apply
 ```
 
-The first command is a dry run. The second enables only identity/profile; employment, manager, and leave remain disabled pending record-semantics validation.
+The first command is a dry run. The second enables identity, profile, and read-only leave balances; employment, manager, leave requests, and approvals remain disabled pending record-semantics validation.
 
-Bootstrap a manually approved identity mapping without using display-name matching:
+At first authenticated `/me` access, the portal automatically performs the same exact UPN lookup
+and immutable object-ID verification. A unique result creates a verified local mapping plus mapping
+history and an audit event. Missing, mismatched, duplicate, disabled, or conflicting mappings fail
+closed. No name or email-only matching is allowed.
+
+For administrator diagnosis or manual bootstrap without display-name matching:
 
 First perform a read-only lookup by the immutable Entra object ID and independently verify the
 returned personnel number and legal entity:
