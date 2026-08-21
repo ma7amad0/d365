@@ -13,6 +13,7 @@ from app.d365.token_service import D365TokenService
 
 ENTITY = "EssWorkerDetails"
 OID_FIELD = "AadUserObjectId"
+UPN_FIELD = "AadUserPrincipalName"
 OUTPUT_FIELDS = (
     "AadUserObjectId",
     "AadUserPrincipalName",
@@ -22,8 +23,10 @@ OUTPUT_FIELDS = (
 )
 
 
-async def run(raw_oid: str) -> int:
+async def run(raw_oid: str, raw_upn: str | None = None) -> int:
     entra_oid = str(uuid.UUID(raw_oid))
+    upn = raw_upn.casefold().strip() if raw_upn else None
+    filter_expression = equals(UPN_FIELD, upn) if upn else equals(OID_FIELD, entra_oid)
     settings = get_settings()
     try:
         async with D365Client(settings, D365TokenService(settings)) as client:
@@ -31,7 +34,7 @@ async def run(raw_oid: str) -> int:
                 ENTITY,
                 ODataQuery(
                     select=OUTPUT_FIELDS,
-                    filter_expression=equals(OID_FIELD, entra_oid),
+                    filter_expression=filter_expression,
                     top=2,
                 ),
             )
@@ -47,6 +50,14 @@ async def run(raw_oid: str) -> int:
             return 3
 
         worker = records[0]
+        try:
+            returned_oid = str(uuid.UUID(str(worker.get(OID_FIELD))))
+        except (TypeError, ValueError, AttributeError):
+            print("[CONFLICT] D365 worker has no valid Entra object ID", file=sys.stderr)
+            return 3
+        if returned_oid != entra_oid:
+            print("[CONFLICT] D365 worker Entra object ID does not match", file=sys.stderr)
+            return 3
         print("[FOUND] Exact Entra object-ID match; verify before approval")
         for field in OUTPUT_FIELDS:
             print(f"{field}: {worker.get(field) or '-'}")
@@ -61,8 +72,12 @@ def main() -> None:
         description="Read-only lookup of a D365 worker by exact Entra object ID"
     )
     parser.add_argument("--oid", required=True, help="Entra user object ID")
+    parser.add_argument(
+        "--upn",
+        help="Query by exact UPN, then require D365's returned object ID to match --oid",
+    )
     args = parser.parse_args()
-    raise SystemExit(asyncio.run(run(args.oid)))
+    raise SystemExit(asyncio.run(run(args.oid, args.upn)))
 
 
 if __name__ == "__main__":

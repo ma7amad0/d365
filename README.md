@@ -139,10 +139,14 @@ returned personnel number and legal entity:
 
 ```bash
 docker compose exec backend python -m app.tools.lookup_identity_candidate \
-  --oid <ENTRA-OBJECT-ID>
+  --oid <ENTRA-OBJECT-ID> \
+  --upn employee@example.ae
 ```
 
-The lookup never writes a mapping and fails on missing or duplicate D365 matches. After approval:
+Some D365 environments reject filters on the object-ID field. The UPN option performs an exact
+UPN query but still fails unless D365 returns the same immutable object ID supplied with `--oid`.
+The lookup never writes a mapping and fails on missing, mismatched, or duplicate D365 matches.
+After approval:
 
 ```bash
 docker compose exec backend python -m app.tools.create_identity_mapping \
