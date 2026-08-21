@@ -37,6 +37,21 @@ def identity() -> EmployeeIdentityMapping:
     )
 
 
+def fallback_configuration() -> D365EntityMapping:
+    return D365EntityMapping(
+        mapping_key="leave_balance_active",
+        entity_name="LeaveBalancesActive",
+        personnel_number_field="PersonnelNumber",
+        company_field="dataAreaId",
+        field_mapping={
+            "leaveType": "BalanceType",
+            "available": "BalanceRemaining",
+            "hidden": "HideLeaveBalances",
+        },
+        enabled=True,
+    )
+
+
 @pytest.mark.asyncio
 async def test_balances_are_scoped_to_mapped_employee_and_allow_listed_fields() -> None:
     session = MagicMock()
@@ -83,6 +98,97 @@ async def test_leave_record_for_another_employee_fails_closed() -> None:
                 }
             ]
         }
+    )
+
+    with pytest.raises(PortalError) as error:
+        await D365LeaveService(session, client).get_balances(identity())
+
+    assert error.value.code == "LEAVE_CONFLICT"
+
+
+@pytest.mark.asyncio
+async def test_empty_ess_result_falls_back_to_active_balances() -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[configuration(), fallback_configuration()])
+    client = MagicMock()
+    client.get_entity = AsyncMock(
+        side_effect=[
+            {"value": []},
+            {
+                "value": [
+                    {
+                        "PersonnelNumber": "6666",
+                        "dataAreaId": "SSSA",
+                        "BalanceType": "ANNUAL",
+                        "BalanceRemaining": 12.25,
+                        "HideLeaveBalances": False,
+                    }
+                ]
+            },
+        ]
+    )
+
+    response = await D365LeaveService(session, client).get_balances(identity())
+
+    assert len(response.balances) == 1
+    assert response.balances[0].leaveType == "ANNUAL"
+    assert str(response.balances[0].available) == "12.25"
+    assert response.balances[0].taken is None
+    assert response.balances[0].total is None
+    entity, query = client.get_entity.call_args.args
+    assert entity == "LeaveBalancesActive"
+    assert "6666" in str(query.filter_expression)
+    assert "SSSA" in str(query.filter_expression)
+    assert query.cross_company is True
+
+
+@pytest.mark.asyncio
+async def test_fallback_suppresses_hidden_balances() -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[configuration(), fallback_configuration()])
+    client = MagicMock()
+    client.get_entity = AsyncMock(
+        side_effect=[
+            {"value": []},
+            {
+                "value": [
+                    {
+                        "PersonnelNumber": "6666",
+                        "dataAreaId": "SSSA",
+                        "BalanceType": "PRIVATE",
+                        "BalanceRemaining": 2,
+                        "HideLeaveBalances": True,
+                    }
+                ]
+            },
+        ]
+    )
+
+    response = await D365LeaveService(session, client).get_balances(identity())
+
+    assert response.balances == []
+
+
+@pytest.mark.asyncio
+async def test_invalid_fallback_visibility_fails_closed() -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[configuration(), fallback_configuration()])
+    client = MagicMock()
+    client.get_entity = AsyncMock(
+        side_effect=[
+            {"value": []},
+            {
+                "value": [
+                    {
+                        "PersonnelNumber": "6666",
+                        "dataAreaId": "SSSA",
+                        "BalanceType": "ANNUAL",
+                        "BalanceRemaining": 2,
+                        "HideLeaveBalances": "unexpected",
+                    }
+                ]
+            },
+        ]
     )
 
     with pytest.raises(PortalError) as error:

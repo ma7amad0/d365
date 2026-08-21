@@ -67,6 +67,18 @@
         "available": "BalanceAvailable"
       },
       "enabled": true
+    },
+    {
+      "mapping_key": "leave_balance_active",
+      "entity_name": "LeaveBalancesActive",
+      "personnel_number_field": "PersonnelNumber",
+      "company_field": "dataAreaId",
+      "field_mapping": {
+        "leaveType": "BalanceType",
+        "available": "BalanceRemaining",
+        "hidden": "HideLeaveBalances"
+      },
+      "enabled": true
     }
   ]
 }

@@ -131,7 +131,11 @@ docker compose exec backend python -m app.tools.apply_d365_mapping \
   config/d365-uat-confirmed.json --apply
 ```
 
-The first command is a dry run. The second enables identity, profile, and read-only leave balances; employment, manager, leave requests, and approvals remain disabled pending record-semantics validation.
+The first command is a dry run. The second enables identity, profile, and read-only leave balances;
+employment, manager, leave requests, and approvals remain disabled pending record-semantics
+validation. If the app-only D365 identity receives no rows from `EssLeaveBalances`, the leave service
+falls back to `LeaveBalancesActive`, remains scoped to the verified personnel number and company,
+and suppresses rows whose `HideLeaveBalances` value is enabled.
 
 At first authenticated `/me` access, the portal automatically performs the same exact UPN lookup
 and immutable object-ID verification. A unique result creates a verified local mapping plus mapping

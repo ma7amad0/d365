@@ -12,7 +12,7 @@ from app.d365.query import ODataQuery, and_all, equals, validate_identifier
 from app.database.models import D365EntityMapping, EmployeeIdentityMapping
 from app.employees.schemas import LeaveBalance, LeaveBalancesResponse
 
-LEAVE_BALANCE_FIELDS = {"leaveType", "taken", "total", "available"}
+LEAVE_BALANCE_FIELDS = {"leaveType", "taken", "total", "available", "hidden"}
 
 
 class D365LeaveService:
@@ -21,7 +21,35 @@ class D365LeaveService:
         self._client = client
 
     async def get_balances(self, identity: EmployeeIdentityMapping) -> LeaveBalancesResponse:
-        configuration = await self._configuration()
+        configuration = await self._configuration("leave_balance", required=True)
+        assert configuration is not None
+        records, fields = await self._records(configuration, identity)
+
+        if not records:
+            fallback = await self._configuration("leave_balance_active", required=False)
+            if fallback is not None:
+                records, fields = await self._records(fallback, identity)
+
+        balances: list[LeaveBalance] = []
+        for raw in records:
+            if "hidden" in fields and self._is_hidden(raw.get(fields["hidden"])):
+                continue
+            leave_type = self._required_value(raw.get(fields["leaveType"]))
+            balances.append(
+                LeaveBalance(
+                    leaveType=leave_type,
+                    available=self._number(raw.get(fields.get("available", ""))),
+                    taken=self._number(raw.get(fields.get("taken", ""))),
+                    total=self._number(raw.get(fields.get("total", ""))),
+                )
+            )
+        return LeaveBalancesResponse(balances=balances)
+
+    async def _records(
+        self,
+        configuration: D365EntityMapping,
+        identity: EmployeeIdentityMapping,
+    ) -> tuple[list[dict[str, Any]], dict[str, str]]:
         fields = self._validated_fields(configuration.field_mapping)
         personnel_field = self._required_identifier(configuration.personnel_number_field)
         selected = [personnel_field, *fields.values()]
@@ -43,7 +71,7 @@ class D365LeaveService:
         if not isinstance(records, list):
             raise PortalError("LEAVE_UNAVAILABLE", "Your leave balances are unavailable.", 503)
 
-        balances: list[LeaveBalance] = []
+        validated: list[dict[str, Any]] = []
         for raw in records:
             if not isinstance(raw, dict):
                 raise PortalError("LEAVE_CONFLICT", "Leave balance data requires review.", 409)
@@ -57,32 +85,46 @@ class D365LeaveService:
                     raise PortalError(
                         "LEAVE_CONFLICT", "Leave balance company validation failed.", 409
                     )
-            leave_type = self._required_value(raw.get(fields["leaveType"]))
-            balances.append(
-                LeaveBalance(
-                    leaveType=leave_type,
-                    available=self._number(raw.get(fields.get("available", ""))),
-                    taken=self._number(raw.get(fields.get("taken", ""))),
-                    total=self._number(raw.get(fields.get("total", ""))),
-                )
-            )
-        return LeaveBalancesResponse(balances=balances)
+            validated.append(raw)
+        return validated, fields
 
-    async def _configuration(self) -> D365EntityMapping:
+    async def _configuration(
+        self, mapping_key: str, *, required: bool
+    ) -> D365EntityMapping | None:
         configuration = await self._session.scalar(
             select(D365EntityMapping).where(
-                D365EntityMapping.mapping_key == "leave_balance",
+                D365EntityMapping.mapping_key == mapping_key,
                 D365EntityMapping.enabled.is_(True),
             )
         )
-        if configuration is None:
+        # The key check also makes simplistic test doubles fail closed rather than
+        # accidentally reusing the primary entity as its own fallback.
+        if configuration is not None and configuration.mapping_key != mapping_key:
+            configuration = None
+        if configuration is None and required:
             raise PortalError(
                 "LEAVE_NOT_CONFIGURED", "Leave balance integration has not been enabled.", 503
             )
+        if configuration is None:
+            return None
         validate_identifier(configuration.entity_name)
         if configuration.company_field:
             validate_identifier(configuration.company_field)
         return configuration
+
+    @staticmethod
+    def _is_hidden(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().casefold()
+            if normalized in {"true", "yes", "1"}:
+                return True
+            if normalized in {"false", "no", "0"}:
+                return False
+        raise PortalError("LEAVE_CONFLICT", "Leave balance visibility is invalid.", 409)
 
     @staticmethod
     def _validated_fields(raw: dict[str, Any]) -> dict[str, str]:
