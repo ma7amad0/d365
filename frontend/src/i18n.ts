@@ -11,6 +11,12 @@ const resources = {
     secureFoundation: 'Secure sign-in is active', foundationDetail: 'Employee data appears after your identity mapping is verified.',
     signIn: 'Sign in with Microsoft', signInDetail: 'Use your organization account to continue securely.',
     configurationMissing: 'Microsoft Entra configuration is missing from this deployment.', logout: 'Sign out',
+    mappingVerified: 'Your verified employee profile is ready.', viewDetails: 'View your verified details',
+    backToDashboard: 'Back to dashboard', loadingProfile: 'Loading your employee profile…',
+    profileUnavailable: 'Employee profile unavailable', mappingRequired: 'An administrator must verify your Entra-to-D365 employee mapping.',
+    tryAgain: 'Try again', employee: 'Employee', personnelNumber: 'Personnel number', email: 'Email', phone: 'Phone',
+    professionalTitle: 'Professional title', officeLocation: 'Office location', legalEntity: 'Legal entity',
+    employmentStartDate: 'Employment start date', employmentEndDate: 'Employment end date',
   }},
   ar: { translation: {
     portal: 'بوابة الموظفين', welcome: 'مرحباً بعودتك', overview: 'نظرة سريعة على يوم عملك',
@@ -21,6 +27,12 @@ const resources = {
     secureFoundation: 'تسجيل الدخول الآمن مفعّل', foundationDetail: 'تظهر بيانات الموظف بعد التحقق من ربط الهوية.',
     signIn: 'تسجيل الدخول باستخدام Microsoft', signInDetail: 'استخدم حساب المؤسسة للمتابعة بأمان.',
     configurationMissing: 'إعدادات Microsoft Entra غير موجودة في هذا النشر.', logout: 'تسجيل الخروج',
+    mappingVerified: 'ملف الموظف الموثق جاهز.', viewDetails: 'عرض بياناتك الموثقة',
+    backToDashboard: 'العودة إلى الرئيسية', loadingProfile: 'جارٍ تحميل ملف الموظف…',
+    profileUnavailable: 'ملف الموظف غير متاح', mappingRequired: 'يجب أن يتحقق المسؤول من ربط حساب Entra بسجل الموظف في D365.',
+    tryAgain: 'إعادة المحاولة', employee: 'موظف', personnelNumber: 'الرقم الوظيفي', email: 'البريد الإلكتروني', phone: 'الهاتف',
+    professionalTitle: 'المسمى الوظيفي', officeLocation: 'موقع المكتب', legalEntity: 'الجهة القانونية',
+    employmentStartDate: 'تاريخ بدء التوظيف', employmentEndDate: 'تاريخ انتهاء التوظيف',
   }},
 }
 

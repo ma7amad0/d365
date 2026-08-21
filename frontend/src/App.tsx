@@ -15,12 +15,31 @@ const cards = [
   ['pendingApprovals', CheckSquare], ['employment', BriefcaseBusiness], ['quickLinks', Gauge],
 ] as const
 
+type View = 'dashboard' | 'profile'
+
+type EmployeeProfile = {
+  personnelNumber: string
+  displayName?: string | null
+  email?: string | null
+  phone?: string | null
+  officeLocation?: string | null
+  professionalTitle?: string | null
+  legalEntity?: string | null
+  employmentStartDate?: string | null
+  employmentEndDate?: string | null
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
   const { instance, accounts } = useMsal()
   const authenticated = useIsAuthenticated()
   const [displayName, setDisplayName] = useState(accounts[0]?.name || '')
   const [authError, setAuthError] = useState('')
+  const [mappingStatus, setMappingStatus] = useState('unknown')
+  const [view, setView] = useState<View>('dashboard')
+  const [profile, setProfile] = useState<EmployeeProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState('')
 
   useEffect(() => {
     if (!authenticated) return
@@ -30,8 +49,9 @@ export default function App() {
     void instance.acquireTokenSilent({ account, scopes: [apiScope] }).then(async result => {
       const response = await fetch('/api/v1/me', { headers: { Authorization: `Bearer ${result.accessToken}` } })
       if (response.ok) {
-        const me = await response.json() as { name?: string }
-        setDisplayName(me.name || account.name || '')
+        const me = await response.json() as { name?: string, username?: string, mapping_status?: string }
+        setDisplayName(me.name || account.name || me.username || '')
+        setMappingStatus(me.mapping_status || 'unknown')
       }
     }).catch(async error => {
       if (!(error instanceof InteractionRequiredAuthError)) return
@@ -62,6 +82,36 @@ export default function App() {
     }
   }
 
+  const showProfile = async () => {
+    setView('profile')
+    if (profile) return
+    setProfileLoading(true)
+    setProfileError('')
+    const account = instance.getActiveAccount() || accounts[0]
+    if (!account) {
+      setProfileError(t('profileUnavailable'))
+      setProfileLoading(false)
+      return
+    }
+    try {
+      const result = await instance.acquireTokenSilent({ account, scopes: [apiScope] })
+      const response = await fetch('/api/v1/me/profile', {
+        headers: { Authorization: `Bearer ${result.accessToken}` },
+      })
+      const body = await response.json() as { employee?: EmployeeProfile, message?: string }
+      if (!response.ok || !body.employee) {
+        setProfileError(body.message || t('profileUnavailable'))
+        return
+      }
+      setProfile(body.employee)
+      if (body.employee.displayName) setDisplayName(body.employee.displayName)
+    } catch {
+      setProfileError(t('profileUnavailable'))
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
   const toggleLanguage = async () => {
     const language = i18n.language === 'en' ? 'ar' : 'en'
     await i18n.changeLanguage(language)
@@ -71,19 +121,37 @@ export default function App() {
   if (!authenticated) return <div className="login-page"><section className="login-card"><span className="brand-mark">S</span><p>SSSA</p><h1>{t('portal')}</h1><span>{authConfigured ? t('signInDetail') : t('configurationMissing')}</span>{authError && <span role="alert">{authError}</span>}<button disabled={!authConfigured} onClick={() => void signIn()}><LogIn size={19}/>{t('signIn')}</button></section></div>
 
   const initials = (displayName || 'Employee').split(/\s+/).slice(0, 2).map(value => value[0]).join('').toUpperCase()
+  const profileFields: Array<[keyof EmployeeProfile, string]> = [
+    ['personnelNumber', 'personnelNumber'], ['email', 'email'], ['phone', 'phone'],
+    ['professionalTitle', 'professionalTitle'], ['officeLocation', 'officeLocation'],
+    ['legalEntity', 'legalEntity'], ['employmentStartDate', 'employmentStartDate'],
+    ['employmentEndDate', 'employmentEndDate'],
+  ]
   return <div className="shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">S</span><div><strong>SSSA</strong><small>{t('portal')}</small></div></div>
-      <nav>{nav.map(([label, Icon], index) => <button className={index === 0 ? 'active' : ''} key={label}><Icon size={19}/><span>{t(label)}</span></button>)}</nav>
+      <nav>{nav.map(([label, Icon]) => {
+        const enabled = label === 'dashboard' || label === 'profile'
+        const active = (label === 'dashboard' && view === 'dashboard') || (label === 'profile' && view === 'profile')
+        return <button className={active ? 'active' : ''} disabled={!enabled} key={label} onClick={() => label === 'profile' ? void showProfile() : setView('dashboard')}><Icon size={19}/><span>{t(label)}</span></button>
+      })}</nav>
       <div className="security-note"><BadgeCheck size={19}/><span>Protected by Microsoft Entra ID</span></div>
     </aside>
     <main>
       <header><button className="language" onClick={toggleLanguage}><Languages size={18}/>{i18n.language === 'en' ? 'العربية' : 'English'}</button><button className="icon-button" aria-label="Notifications"><Bell size={19}/></button><button className="icon-button" aria-label={t('logout')} onClick={() => void signOut()}><LogOut size={19}/></button><div className="avatar">{initials}</div></header>
-      <section className="content">
+      {view === 'dashboard' ? <section className="content">
         <div className="hero"><div><p>{t('welcome')}</p><h1>{displayName || 'Employee'}</h1><span>{t('overview')}</span></div><div className="hero-orbit"><span>SSSA</span></div></div>
-        <div className="notice"><BadgeCheck/><div><strong>{t('secureFoundation')}</strong><p>{t('foundationDetail')}</p></div></div>
-        <div className="grid">{cards.map(([label, Icon]) => <article key={label}><div className="card-icon"><Icon/></div><div><h2>{t(label)}</h2><p>{t('availableSoon')}</p></div><ChevronRight className="chevron" size={20}/></article>)}</div>
-      </section>
+        <div className="notice"><BadgeCheck/><div><strong>{t('secureFoundation')}</strong><p>{t(mappingStatus === 'verified' ? 'mappingVerified' : 'foundationDetail')}</p></div></div>
+        <div className="grid">{cards.map(([label, Icon]) => {
+          const enabled = label === 'employeeProfile' || label === 'jobDepartment' || label === 'employment'
+          return <button className="dashboard-card" disabled={!enabled} key={label} onClick={() => void showProfile()}><div className="card-icon"><Icon/></div><div><h2>{t(label)}</h2><p>{t(enabled ? 'viewDetails' : 'availableSoon')}</p></div>{enabled && <ChevronRight className="chevron" size={20}/>}</button>
+        })}</div>
+      </section> : <section className="content profile-page">
+        <div className="page-heading"><div><p>{t('employeeProfile')}</p><h1>{profile?.displayName || displayName || t('profile')}</h1></div><button onClick={() => setView('dashboard')}>{t('backToDashboard')}</button></div>
+        {profileLoading && <div className="profile-state">{t('loadingProfile')}</div>}
+        {profileError && <div className="profile-state error" role="alert"><strong>{t('profileUnavailable')}</strong><p>{profileError}</p>{mappingStatus !== 'verified' && <p>{t('mappingRequired')}</p>}<button onClick={() => { setProfileError(''); void showProfile() }}>{t('tryAgain')}</button></div>}
+        {profile && <div className="profile-panel"><div className="profile-summary"><div className="profile-avatar">{initials}</div><div><h2>{profile.displayName || displayName}</h2><p>{profile.professionalTitle || t('employee')}</p></div></div><dl>{profileFields.map(([field, label]) => <div key={field}><dt>{t(label)}</dt><dd>{profile[field] || '—'}</dd></div>)}</dl></div>}
+      </section>}
     </main>
   </div>
 }
