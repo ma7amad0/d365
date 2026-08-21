@@ -7,12 +7,14 @@ export const apiScope = import.meta.env.VITE_PORTAL_API_SCOPE
 export const authConfigured = Boolean(tenantId && clientId && apiScope)
 
 export function createMsalInstance() {
+  const portalRoot = `${window.location.origin}/`
+
   return new PublicClientApplication({
     auth: {
       clientId: clientId || 'not-configured',
       authority: `https://login.microsoftonline.com/${tenantId || 'organizations'}`,
-      redirectUri: window.location.origin,
-      postLogoutRedirectUri: window.location.origin,
+      redirectUri: portalRoot,
+      postLogoutRedirectUri: portalRoot,
     },
     cache: {
       cacheLocation: BrowserCacheLocation.MemoryStorage,
