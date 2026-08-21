@@ -1,0 +1,20 @@
+# Replace the port-80 server in nginx.conf for production and mount certificates read-only.
+server {
+    listen 80;
+    server_name portal.example.internal;
+    return 308 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name portal.example.internal;
+    ssl_certificate /etc/nginx/certs/portal.crt;
+    ssl_certificate_key /etc/nginx/certs/portal.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:TLS:10m;
+    ssl_session_tickets off;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # Copy the proxy locations and remaining security headers from nginx.conf here.
+}
+
