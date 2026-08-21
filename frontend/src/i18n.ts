@@ -17,6 +17,10 @@ const resources = {
     tryAgain: 'Try again', employee: 'Employee', personnelNumber: 'Personnel number', email: 'Email', phone: 'Phone',
     professionalTitle: 'Professional title', officeLocation: 'Office location', legalEntity: 'Legal entity',
     employmentStartDate: 'Employment start date', employmentEndDate: 'Employment end date',
+    leaveBalances: 'My leave balances', loadingLeave: 'Loading your leave balances…',
+    leaveUnavailable: 'Leave balances unavailable', noLeaveBalances: 'No leave balances were returned for your employee record.',
+    leaveType: 'Leave type', availableBalance: 'Available balance', usedLeave: 'Used this year',
+    totalEntitlement: 'Total this year',
   }},
   ar: { translation: {
     portal: 'بوابة الموظفين', welcome: 'مرحباً بعودتك', overview: 'نظرة سريعة على يوم عملك',
@@ -33,6 +37,10 @@ const resources = {
     tryAgain: 'إعادة المحاولة', employee: 'موظف', personnelNumber: 'الرقم الوظيفي', email: 'البريد الإلكتروني', phone: 'الهاتف',
     professionalTitle: 'المسمى الوظيفي', officeLocation: 'موقع المكتب', legalEntity: 'الجهة القانونية',
     employmentStartDate: 'تاريخ بدء التوظيف', employmentEndDate: 'تاريخ انتهاء التوظيف',
+    leaveBalances: 'أرصدة إجازاتي', loadingLeave: 'جارٍ تحميل أرصدة الإجازات…',
+    leaveUnavailable: 'أرصدة الإجازات غير متاحة', noLeaveBalances: 'لم يتم العثور على أرصدة إجازات لسجل الموظف.',
+    leaveType: 'نوع الإجازة', availableBalance: 'الرصيد المتاح', usedLeave: 'المستخدم هذا العام',
+    totalEntitlement: 'الإجمالي هذا العام',
   }},
 }
 

@@ -15,7 +15,7 @@ const cards = [
   ['pendingApprovals', CheckSquare], ['employment', BriefcaseBusiness], ['quickLinks', Gauge],
 ] as const
 
-type View = 'dashboard' | 'profile'
+type View = 'dashboard' | 'profile' | 'leave'
 
 type EmployeeProfile = {
   personnelNumber: string
@@ -29,6 +29,13 @@ type EmployeeProfile = {
   employmentEndDate?: string | null
 }
 
+type LeaveBalance = {
+  leaveType: string
+  available?: string | null
+  taken?: string | null
+  total?: string | null
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
   const { instance, accounts } = useMsal()
@@ -40,6 +47,9 @@ export default function App() {
   const [profile, setProfile] = useState<EmployeeProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[] | null>(null)
+  const [leaveLoading, setLeaveLoading] = useState(false)
+  const [leaveError, setLeaveError] = useState('')
 
   useEffect(() => {
     if (!authenticated) return
@@ -112,6 +122,35 @@ export default function App() {
     }
   }
 
+  const showLeave = async () => {
+    setView('leave')
+    if (leaveBalances) return
+    setLeaveLoading(true)
+    setLeaveError('')
+    const account = instance.getActiveAccount() || accounts[0]
+    if (!account) {
+      setLeaveError(t('leaveUnavailable'))
+      setLeaveLoading(false)
+      return
+    }
+    try {
+      const result = await instance.acquireTokenSilent({ account, scopes: [apiScope] })
+      const response = await fetch('/api/v1/me/leave-balances', {
+        headers: { Authorization: `Bearer ${result.accessToken}` },
+      })
+      const body = await response.json() as { balances?: LeaveBalance[], message?: string }
+      if (!response.ok || !body.balances) {
+        setLeaveError(body.message || t('leaveUnavailable'))
+        return
+      }
+      setLeaveBalances(body.balances)
+    } catch {
+      setLeaveError(t('leaveUnavailable'))
+    } finally {
+      setLeaveLoading(false)
+    }
+  }
+
   const toggleLanguage = async () => {
     const language = i18n.language === 'en' ? 'ar' : 'en'
     await i18n.changeLanguage(language)
@@ -131,9 +170,10 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">S</span><div><strong>SSSA</strong><small>{t('portal')}</small></div></div>
       <nav>{nav.map(([label, Icon]) => {
-        const enabled = label === 'dashboard' || label === 'profile'
-        const active = (label === 'dashboard' && view === 'dashboard') || (label === 'profile' && view === 'profile')
-        return <button className={active ? 'active' : ''} disabled={!enabled} key={label} onClick={() => label === 'profile' ? void showProfile() : setView('dashboard')}><Icon size={19}/><span>{t(label)}</span></button>
+        const enabled = label === 'dashboard' || label === 'profile' || label === 'leave'
+        const active = label === view
+        const navigate = () => label === 'profile' ? void showProfile() : label === 'leave' ? void showLeave() : setView('dashboard')
+        return <button className={active ? 'active' : ''} disabled={!enabled} key={label} onClick={navigate}><Icon size={19}/><span>{t(label)}</span></button>
       })}</nav>
       <div className="security-note"><BadgeCheck size={19}/><span>Protected by Microsoft Entra ID</span></div>
     </aside>
@@ -143,14 +183,22 @@ export default function App() {
         <div className="hero"><div><p>{t('welcome')}</p><h1>{displayName || 'Employee'}</h1><span>{t('overview')}</span></div><div className="hero-orbit"><span>SSSA</span></div></div>
         <div className="notice"><BadgeCheck/><div><strong>{t('secureFoundation')}</strong><p>{t(mappingStatus === 'verified' ? 'mappingVerified' : 'foundationDetail')}</p></div></div>
         <div className="grid">{cards.map(([label, Icon]) => {
-          const enabled = label === 'employeeProfile' || label === 'jobDepartment' || label === 'employment'
-          return <button className="dashboard-card" disabled={!enabled} key={label} onClick={() => void showProfile()}><div className="card-icon"><Icon/></div><div><h2>{t(label)}</h2><p>{t(enabled ? 'viewDetails' : 'availableSoon')}</p></div>{enabled && <ChevronRight className="chevron" size={20}/>}</button>
+          const profileCard = label === 'employeeProfile' || label === 'jobDepartment' || label === 'employment'
+          const leaveCard = label === 'leaveBalance'
+          const enabled = profileCard || leaveCard
+          return <button className="dashboard-card" disabled={!enabled} key={label} onClick={() => leaveCard ? void showLeave() : void showProfile()}><div className="card-icon"><Icon/></div><div><h2>{t(label)}</h2><p>{t(enabled ? 'viewDetails' : 'availableSoon')}</p></div>{enabled && <ChevronRight className="chevron" size={20}/>}</button>
         })}</div>
-      </section> : <section className="content profile-page">
+      </section> : view === 'profile' ? <section className="content profile-page">
         <div className="page-heading"><div><p>{t('employeeProfile')}</p><h1>{profile?.displayName || displayName || t('profile')}</h1></div><button onClick={() => setView('dashboard')}>{t('backToDashboard')}</button></div>
         {profileLoading && <div className="profile-state">{t('loadingProfile')}</div>}
         {profileError && <div className="profile-state error" role="alert"><strong>{t('profileUnavailable')}</strong><p>{profileError}</p>{mappingStatus !== 'verified' && <p>{t('mappingRequired')}</p>}<button onClick={() => { setProfileError(''); void showProfile() }}>{t('tryAgain')}</button></div>}
         {profile && <div className="profile-panel"><div className="profile-summary"><div className="profile-avatar">{initials}</div><div><h2>{profile.displayName || displayName}</h2><p>{profile.professionalTitle || t('employee')}</p></div></div><dl>{profileFields.map(([field, label]) => <div key={field}><dt>{t(label)}</dt><dd>{profile[field] || '—'}</dd></div>)}</dl></div>}
+      </section> : <section className="content leave-page">
+        <div className="page-heading"><div><p>{t('leave')}</p><h1>{t('leaveBalances')}</h1></div><button onClick={() => setView('dashboard')}>{t('backToDashboard')}</button></div>
+        {leaveLoading && <div className="profile-state">{t('loadingLeave')}</div>}
+        {leaveError && <div className="profile-state error" role="alert"><strong>{t('leaveUnavailable')}</strong><p>{leaveError}</p><button onClick={() => { setLeaveError(''); void showLeave() }}>{t('tryAgain')}</button></div>}
+        {leaveBalances && leaveBalances.length === 0 && <div className="profile-state">{t('noLeaveBalances')}</div>}
+        {leaveBalances && leaveBalances.length > 0 && <div className="leave-grid">{leaveBalances.map(balance => <article key={balance.leaveType}><div className="leave-type"><CalendarDays/><div><span>{t('leaveType')}</span><h2>{balance.leaveType}</h2></div></div><div className="balance-available"><strong>{balance.available ?? '—'}</strong><span>{t('availableBalance')}</span></div><dl><div><dt>{t('usedLeave')}</dt><dd>{balance.taken ?? '—'}</dd></div><div><dt>{t('totalEntitlement')}</dt><dd>{balance.total ?? '—'}</dd></div></dl></article>)}</div>}
       </section>}
     </main>
   </div>

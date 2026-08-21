@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit.service import record_audit
 from app.auth.dependencies import require_roles
 from app.auth.schemas import AuthenticatedUser, MeResponse
+from app.d365.leave_service import D365LeaveService
 from app.d365.profile_service import D365ProfileService
 from app.database.session import get_session
 from app.employees.mapping_service import IdentityMappingService
-from app.employees.schemas import EmployeeProfileResponse
+from app.employees.schemas import EmployeeProfileResponse, LeaveBalancesResponse
 
 router = APIRouter(prefix="/api/v1", tags=["employee"])
 portal_user = require_roles("employee", "manager", "hr", "finance", "portal_admin", "auditor")
@@ -58,3 +59,23 @@ async def my_profile(
         target_employee=mapping.d365_personnel_number,
     )
     return profile
+
+
+@router.get("/me/leave-balances", response_model=LeaveBalancesResponse)
+async def my_leave_balances(
+    request: Request,
+    user: AuthenticatedUser = Depends(portal_user),
+    session: AsyncSession = Depends(get_session),
+) -> LeaveBalancesResponse:
+    mapping = await IdentityMappingService(session).require_verified(user.oid)
+    balances = await D365LeaveService(session, request.app.state.d365_client).get_balances(mapping)
+    await record_audit(
+        session,
+        request,
+        user,
+        action="LEAVE_BALANCE_VIEW",
+        resource="/api/v1/me/leave-balances",
+        result="SUCCESS",
+        target_employee=mapping.d365_personnel_number,
+    )
+    return balances

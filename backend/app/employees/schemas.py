@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel
 
 
@@ -17,3 +19,14 @@ class EmployeeProfile(BaseModel):
 
 class EmployeeProfileResponse(BaseModel):
     employee: EmployeeProfile
+
+
+class LeaveBalance(BaseModel):
+    leaveType: str
+    available: Decimal | None = None
+    taken: Decimal | None = None
+    total: Decimal | None = None
+
+
+class LeaveBalancesResponse(BaseModel):
+    balances: list[LeaveBalance]

@@ -75,3 +75,39 @@ def test_query_parameter_cannot_select_employee_b() -> None:
     _, query = d365_client.get_entity.call_args.args
     assert "EmployeeA" in str(query.filter_expression)
     assert "EmployeeB" not in str(query.filter_expression)
+
+
+def test_leave_query_parameter_cannot_select_employee_b() -> None:
+    session = FakeSession()
+    session.configuration = D365EntityMapping(
+        mapping_key="leave_balance",
+        entity_name="EssLeaveBalances",
+        personnel_number_field="PersonnelNumber",
+        company_field="dataAreaId",
+        field_mapping={"leaveType": "LeaveTypeId", "available": "BalanceAvailable"},
+        enabled=True,
+    )
+    d365_client = MagicMock()
+    d365_client.get_entity = AsyncMock(return_value={"value": []})
+
+    app = FastAPI()
+    app.state.d365_client = d365_client
+    app.include_router(router)
+    app.add_exception_handler(PortalError, portal_error_handler)
+
+    async def user_override() -> AuthenticatedUser:
+        return AuthenticatedUser(oid="oid-employee-a", tid="tenant", roles=frozenset({"employee"}))
+
+    async def session_override():
+        yield session
+
+    app.dependency_overrides[portal_user] = user_override
+    app.dependency_overrides[get_session] = session_override
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/me/leave-balances?employee_id=EmployeeB")
+
+    assert response.status_code == 200
+    _, query = d365_client.get_entity.call_args.args
+    assert "EmployeeA" in str(query.filter_expression)
+    assert "EmployeeB" not in str(query.filter_expression)
